@@ -2,6 +2,7 @@ from fourteen_minesweeper_variant_solver import Game, Result, Fact, Cell, CellKi
 from ortools.sat.python import cp_model
 from ortools.sat.python.cp_model import CpModel, CpSolver
 from fourteen_minesweeper_variant_solver.rule.vanilla import add_vanilla_rule
+from tqdm.auto import tqdm
 
 class Solver:
     game: Game
@@ -20,16 +21,9 @@ class Solver:
         for rule in self.game.rules:
             rule.apply(self)
 
-    def is_satisfiable(self, pr) -> bool:
+    def is_satisfiable(self) -> bool:
         solver = CpSolver()
         status = solver.Solve(self.model)
-        if pr:
-            if status == cp_model.FEASIBLE or status == cp_model.OPTIMAL:
-                print('Satisfiable')
-                print('\n'.join([str([solver.value(self.mine_vars[r][c]) for c in range(self.game.width)]) for r in range(self.game.height)]))
-                print('\n'.join([str([solver.value(self.game.rules[0].group_id_vars[r][c]) for c in range(self.game.width)]) for r in range(self.game.height)]))
-            else:
-                print('Unsatisfiable')
         return str(status) == str(cp_model.FEASIBLE) or str(status) == str(cp_model.OPTIMAL)
 
 def solve(
@@ -41,19 +35,24 @@ def solve(
     #     return Result(solved=solved, facts=known_facts)
 
     done = False
+    progress = tqdm(total=sum(2 for r in range(game.height) for c in range(game.width) if game.board[r][c].kind == CellKind.UNKNOWN))
     for r in range(game.height):
         for c in range(game.width):
             if game.board[r][c].kind != CellKind.UNKNOWN:
                 continue
         
             for possibility in [Cell.HIDDEN, Cell.MINE]:
+                progress.update()
                 game.board[r][c] = possibility
-                if not Solver(game).is_satisfiable(r==0 and c==4):
+                if not Solver(game).is_satisfiable():
                     game.board[r][c] = Cell.MINE if possibility == Cell.HIDDEN else Cell.HIDDEN
                     known_facts.append(Fact(row=r, column=c, is_mine=game.board[r][c] == Cell.MINE))
                     break
             else:
                 game.board[r][c] = Cell.UNKNOWN
+            
+            if possibility == Cell.HIDDEN:
+                progress.update()
 
     if game.total_mines is not None:
         if sum(cell == Cell.MINE for row in game.board for cell in row) == game.total_mines:
