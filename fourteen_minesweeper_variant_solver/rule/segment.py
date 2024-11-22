@@ -8,12 +8,13 @@ from ortools.sat.python.cp_model import (
 import uuid
 from .util import get_neighbors_of_cells
 import typing
+from fourteen_minesweeper_variant_solver.rule import Rule
 
 if typing.TYPE_CHECKING:
     from fourteen_minesweeper_variant_solver.solver import Solver
 
 
-class SegmentRule:
+class SegmentRule(Rule):
     """
     2S: Each row contains one consecutive segment of mines
     """

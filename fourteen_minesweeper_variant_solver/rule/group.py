@@ -76,6 +76,9 @@ class GroupRule:
                         model.Add(expr).OnlyEnforceIf(label, *expr_only_if['precondition'])
                 model.AddBoolOr(*labels)
 
+        # For each cell that is a mine and with rank k:
+        # - Its region_size equals to the neighbor with rank k - 1 
+
         # For each cell that is a mine:
         # - If its rank is 0, its group_id is its position
         # - If its rank is not 0, its group_id is the same as the group_id of the neighbor that is a mine.

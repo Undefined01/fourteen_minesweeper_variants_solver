@@ -14,9 +14,9 @@ if typing.TYPE_CHECKING:
     from fourteen_minesweeper_variant_solver.solver import Solver
 
 
-class VanillaRule:
+class ModuloRule:
     """
-    2V: The number on the cell equals to the number of mines around it
+    2M: Clues indicates the remainder of the number of mines in the surrounding 3x3 area when divided by 3
     """
     def apply(self, solver: 'Solver') -> None:
         game = solver.game
@@ -33,4 +33,8 @@ class VanillaRule:
                         for j in range(max(0, c - 1), min(game.width, c + 2)):
                             if (i, j) != (r, c):
                                 neighbors.append(mine_vars[i][j])
-                    model.Add(sum(neighbors) == number_of_mines_around)
+                    helper = [model.NewBoolVar(f"helper_{r}_{c}_{i}") for i in range(3)]
+                    model.Add(sum(neighbors) == number_of_mines_around).OnlyEnforceIf(helper[0])
+                    model.Add(sum(neighbors) == number_of_mines_around + 3).OnlyEnforceIf(helper[1])
+                    model.Add(sum(neighbors) == number_of_mines_around + 6).OnlyEnforceIf(helper[2])
+                    model.AddBoolOr(helper)
