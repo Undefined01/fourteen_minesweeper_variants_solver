@@ -8,6 +8,7 @@ from .group import GroupRule
 from .flowers import FlowersRule
 from .bridge import BridgeRule
 from .triplet import TripletRule
+from .cross import CrossRule
 from .deviation import DeviationRule
 from .encrypted import EncryptedRule
 from .modulo import ModuloRule

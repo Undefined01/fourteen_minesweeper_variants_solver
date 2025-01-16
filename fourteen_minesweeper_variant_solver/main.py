@@ -110,6 +110,50 @@ for template_path in Path('templates').glob('*.png'):
     template_image = cv2.morphologyEx(template_image, cv2.MORPH_OPEN, np.ones((2, 2), np.uint8))
     templates[label] = template_image
 
+def recognize_cell(cell: np.ndarray) -> Cell:
+    from fourteen_minesweeper_variant_driver.ocr.ocr import predict
+    res = predict(cell)
+    if len(res) == 1:
+        label = res[0]
+        if label == 'flag':
+            return Cell.MINE
+        elif label == 'hidden':
+            return Cell.HIDDEN
+        elif label == 'blank':
+            return Cell.UNKNOWN
+        elif label in string.digits:
+            return Cell.basic(int(label))
+        elif label in string.ascii_uppercase:
+            return Cell.encrypted(label)
+        else:
+            return Cell.UNKNOWN
+            raise ValueError(f'Unknown label: {label}')
+    else:
+        if all(label in string.digits for label in res):
+            return Cell.dual((int(res[0]), int(res[1])))
+        else:
+            return Cell.UNKNOWN
+            raise ValueError(f'Unknown labels: {res}')
+
+def recognize_text2(board: np.ndarray, cell_contours: MatLike) -> list[list[Cell]]:
+    recognized_grid: list[Cell] = []
+    print(list(cv2.boundingRect(c) for c in cell_contours))
+    result_image = board.copy()
+    # result_image = cv2.cvtColor(result_image, cv2.COLOR_GRAY2BGR)
+    for cell_contour in cell_contours:
+        # Extract cell region
+        x, y, w, h = cv2.boundingRect(cell_contour)
+        cell = board[y+2:y + h-2, x+2:x + w-2]
+        cell = cv2.morphologyEx(cell, cv2.MORPH_OPEN, np.ones((2, 2), np.uint8))
+        cell = cv2.resize(cell, (64, 64))
+        cell = cv2.cvtColor(cell, cv2.COLOR_BGR2RGB)
+        res = recognize_cell(cell)
+        cv2.imwrite(f'recognized/dual/{res}_{uuid.uuid4()}.png', board[y+2:y + h-2, x+2:x + w-2])
+        recognized_grid.append(res)
+    
+    grid_array = [[recognized_grid[i + j * grid_size] for i in range(grid_size)] for j in range(grid_size)]
+    return grid_array
+
 def recognize_text(board: np.ndarray, cell_contours: MatLike) -> list[list[Cell]]:
     recognized_grid: list[Cell] = []
     print(list(cv2.boundingRect(c) for c in cell_contours))
@@ -136,7 +180,7 @@ def recognize_text(board: np.ndarray, cell_contours: MatLike) -> list[list[Cell]
         
         global board_contour
         print(f"Best match: {best_match} {best_score}")
-        if best_score > 1e7:
+        if best_score > 7e6 or True:
             os.makedirs(f'unknown', exist_ok=True)
             unmatched_cell_path = os.path.join('unknown', f"cell_{len(recognized_grid)}.png")
             cell = board[y+2:y + h-2, x+2:x + w-2]
@@ -176,6 +220,7 @@ def recognize_text(board: np.ndarray, cell_contours: MatLike) -> list[list[Cell]
 board_x, board_y, _, _ = cv2.boundingRect(board_contour)
 board_x -= 10
 board_y -= 10
+time.sleep(2)
 while True:
     solved = False
     while not solved:
@@ -185,9 +230,9 @@ while True:
         gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
         _, binary = cv2.threshold(gray, 120, 255, cv2.THRESH_BINARY)
         x, y, w, h = cv2.boundingRect(board_contour)
-        board = binary[y - 10:y + h + 10, x - 10:x + w + 10]
+        board = image[y - 10:y + h + 10, x - 10:x + w + 10]
 
-        grid_array = recognize_text(board, cell_contours)
+        grid_array = recognize_text2(board, cell_contours)
         print(grid_array)
         res = solve(Game(
             board=grid_array,
@@ -196,21 +241,22 @@ while True:
             # total_mines=[10, 12, 21, 24][grid_size - 5],    # Bridge
             # total_mines=[12, 18, 24, 32][grid_size - 5],    # Triple
             rules=[
-                # VanillaRule(),
+                VanillaRule(),
                 # HorizontalRule(),
                 # ConnectedRule(),
                 # SegmentRule(),
                 # GroupRule(),
                 # FlowersRule(),
                 # BridgeRule(),
-                TripletRule(),
+                # TripletRule(),
+                CrossRule(),
                 # DeviationRule(),
                 # EncryptedRule(),
                 # ModuloRule(),
-                LiarRule(),
+                # LiarRule(),
             ],
         ))
-        # exit()
+        exit()
         print(res)
         solved = res.solved
         if len(res.known_facts) == 0:

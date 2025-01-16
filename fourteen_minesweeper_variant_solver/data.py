@@ -40,6 +40,10 @@ class Cell:
     def encrypted(value: str) -> 'Cell':
         return CellEncrypted(value)
 
+    @staticmethod
+    def dual(value: tuple[int, int]) -> 'Cell':
+        return CellDual(value)
+
     # @staticmethod
     # def from_dual(value: tuple[int, int]) -> 'Cell':
     #     return Cell(CellKind.DUAL_VALUE, value)
@@ -74,6 +78,28 @@ class CellBasic(Cell):
     
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, CellBasic):
+            return False
+        if self.value != other.value:
+            return False
+        else:
+            return True
+
+
+class CellDual(Cell):
+    value: tuple[int, int]
+
+    def __init__(self, value: tuple[int, int]) -> None:
+        super().__init__(CellKind.DUAL_VALUE)
+        self.value = value
+    
+    def number_of_mines_around(self) -> int | None:
+        return self.value[0] + self.value[1]
+    
+    def __repr__(self) -> str:
+        return '-'.join(map(str, self.value))
+    
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, CellDual):
             return False
         if self.value != other.value:
             return False
